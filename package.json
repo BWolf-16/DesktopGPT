@@ -1,61 +1,166 @@
 {
   "name": "desktop-gpt",
   "version": "1.0.0",
-  "description": "A desktop version of ChatGPT using Electron",
+  "description": "A desktop application for ChatGPT with system integration",
   "main": "main.js",
-  "scripts": {
-    "start": "npx electron .",
-    "build": "electron-builder"
+  "homepage": "https://github.com/yourusername/DesktopGPT",
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
   },
-  "author": "BWolf",
-  "license": "ISC",
-  "dependencies": {},
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "dist": "electron-builder --publish=never",
+    "release": "electron-builder --publish=always",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": [
+    "electron",
+    "chatgpt",
+    "desktop",
+    "ai",
+    "openai"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/DesktopGPT.git"
+  },
   "devDependencies": {
-    "electron": "^25.0.0",
-    "electron-builder": "^25.1.8"
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.4"
   },
   "build": {
-    "appId": "com.example.desktopgpt",
+    "appId": "com.desktopgpt.app",
     "productName": "Desktop GPT",
+    "copyright": "Copyright © 2024 Desktop GPT",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
-      "**/*",
-      "!node_modules/**/*",
-      "!dist/**/*"
+      "main.js",
+      "preload.js",
+      "assets/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/",
+        "to": "assets/",
+        "filter": ["**/*"]
+      }
     ],
     "win": {
-      "icon": "assets/chatgpt-icon.ico",
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
         }
-      ]
-    },
-    "mac": {
-      "icon": "assets/chatgpt-icon.icns",
-      "target": [
-        "dmg"
-      ]
-    },
-    "linux": {
-      "icon": "assets/chatgpt-icon.png",
-      "target": [
-        "AppImage"
-      ]
+      ],
+      "icon": "assets/chatgpt-icon.ico",
+      "publisherName": "Desktop GPT",
+      "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "assets/chatgpt-icon.ico",
+      "uninstallerIcon": "assets/chatgpt-icon.ico",
+      "installerHeaderIcon": "assets/chatgpt-icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "installerIcon": "assets/chatgpt-icon.ico",
-      "uninstallerIcon": "assets/chatgpt-icon.ico"
-    }
+      "shortcutName": "Desktop GPT",
+      "include": "build/installer.nsh",
+      "script": "build/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "assets/chatgpt-icon.icns",
+      "category": "public.app-category.productivity",
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "Desktop GPT",
+      "icon": "assets/chatgpt-icon.icns",
+      "background": "build/background.png",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        },
+        {
+          "target": "rpm",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/chatgpt-icon.png",
+      "category": "Office",
+      "synopsis": "Desktop application for ChatGPT",
+      "desktop": {
+        "Name": "Desktop GPT",
+        "Comment": "Chat with AI using ChatGPT",
+        "Keywords": "AI;Chat;OpenAI;GPT;Assistant;",
+        "StartupWMClass": "desktop-gpt"
+      }
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "yourusername",
+      "repo": "DesktopGPT",
+      "private": false
+    },
+    "compression": "maximum",
+    "nativeRebuilder": "sequential"
   }
 }
