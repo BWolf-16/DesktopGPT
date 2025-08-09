@@ -1,47 +1,54 @@
 {
   "name": "desktop-gpt",
   "version": "1.0.0",
-  "description": "A desktop application for ChatGPT with system integration",
+  "description": "A desktop application for ChatGPT with native system integration",
   "main": "main.js",
-  "homepage": "https://github.com/yourusername/DesktopGPT",
+  "homepage": "https://github.com/bened/DesktopGPT",
   "author": {
-    "name": "Your Name",
-    "email": "your.email@example.com"
+    "name": "Benedict",
+    "email": "bened@example.com"
   },
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dev": "NODE_ENV=development electron .",
+    "dev": "cross-env NODE_ENV=development electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "dist": "electron-builder --publish=never",
     "release": "electron-builder --publish=always",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "rebuild": "electron-rebuild",
+    "pack": "electron-builder --dir",
+    "clean": "rimraf dist build node_modules/.cache"
   },
   "keywords": [
     "electron",
     "chatgpt",
     "desktop",
     "ai",
-    "openai"
+    "openai",
+    "assistant"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/DesktopGPT.git"
+    "url": "https://github.com/bened/DesktopGPT.git"
   },
   "devDependencies": {
-    "electron": "^27.0.0",
-    "electron-builder": "^24.6.4"
+    "electron": "^27.1.3",
+    "electron-builder": "^24.8.1",
+    "electron-rebuild": "^3.2.9",
+    "cross-env": "^7.0.3",
+    "rimraf": "^5.0.5"
   },
   "dependencies": {
-    "electron-updater": "^6.1.4"
+    "electron-updater": "^6.1.7"
   },
   "build": {
-    "appId": "com.desktopgpt.app",
+    "appId": "com.benedict.desktop-gpt",
     "productName": "Desktop GPT",
-    "copyright": "Copyright © 2024 Desktop GPT",
+    "copyright": "Copyright © 2024 Benedict",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -51,7 +58,15 @@
       "preload.js",
       "assets/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/.cache/**/*",
+      "!**/*.{o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
     "extraResources": [
       {
@@ -64,7 +79,7 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": ["x64"]
         },
         {
           "target": "portable",
@@ -72,9 +87,10 @@
         }
       ],
       "icon": "assets/chatgpt-icon.ico",
-      "publisherName": "Desktop GPT",
+      "publisherName": "Benedict",
       "verifyUpdateCodeSignature": false,
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -86,32 +102,29 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Desktop GPT",
-      "include": "build/installer.nsh",
-      "script": "build/installer.nsh"
+      "menuCategory": "Productivity",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
     },
     "mac": {
       "target": [
         {
           "target": "dmg",
           "arch": ["x64", "arm64"]
-        },
-        {
-          "target": "zip",
-          "arch": ["x64", "arm64"]
         }
       ],
       "icon": "assets/chatgpt-icon.icns",
       "category": "public.app-category.productivity",
       "darkModeSupport": true,
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "dmg": {
-      "title": "Desktop GPT",
+      "title": "Desktop GPT Installer",
       "icon": "assets/chatgpt-icon.icns",
-      "background": "build/background.png",
       "contents": [
         {
           "x": 130,
@@ -138,10 +151,6 @@
         {
           "target": "deb",
           "arch": ["x64"]
-        },
-        {
-          "target": "rpm",
-          "arch": ["x64"]
         }
       ],
       "icon": "assets/chatgpt-icon.png",
@@ -154,13 +163,13 @@
         "StartupWMClass": "desktop-gpt"
       }
     },
-    "publish": {
-      "provider": "github",
-      "owner": "yourusername",
-      "repo": "DesktopGPT",
-      "private": false
-    },
     "compression": "maximum",
-    "nativeRebuilder": "sequential"
+    "nativeRebuilder": "sequential",
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }

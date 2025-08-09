@@ -102,53 +102,99 @@ sudo rpm -i Desktop-GPT-*.rpm
 
 ### Prerequisites
 - Node.js 18+ 
-- npm or yarn
+- npm 8+ or yarn
 - Git
+- Python 3.x (for native modules)
+- Visual Studio Build Tools (Windows) or Xcode Command Line Tools (macOS)
 
-### Setup
+### Quick Setup & Build
+
+**1. Clone and Install**
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/DesktopGPT.git
+git clone https://github.com/bened/DesktopGPT.git
 cd DesktopGPT
 
 # Install dependencies
 npm install
 
-# Run in development mode
-npm run dev
+# Install electron binary
+npx electron --version
 ```
 
-### Building
+**2. Development**
 ```bash
+# Run in development mode with hot reload
+npm run dev
+
+# Start normally
+npm start
+```
+
+**3. Build Executable**
+```bash
+# Clean previous builds
+npm run clean
+
+# Build for Windows (creates installer + portable)
+npm run build:win
+
 # Build for current platform
 npm run build
 
-# Build for specific platforms
-npm run build:win    # Windows
-npm run build:mac    # macOS  
-npm run build:linux  # Linux
-
-# Build and publish release
-npm run release
+# Build without publishing
+npm run dist
 ```
 
-### Project Structure
+**4. Output Files**
+After building, check the `dist/` folder for:
+- `Desktop GPT-1.0.0-win-x64.exe` (NSIS Installer)
+- `Desktop GPT-1.0.0-portable.exe` (Portable version)
+
+### Troubleshooting Build Issues
+
+**Node/NPM Issues**
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Delete node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
 ```
-DesktopGPT/
-├── main.js              # Main Electron process
-├── preload.js           # Preload script for security
-├── package.json         # Dependencies and build config
-├── assets/              # Icons and images
-│   ├── chatgpt-icon.png
-│   ├── chatgpt-icon.ico
-│   └── chatgpt-icon.icns
-├── build/               # Build configuration
-│   ├── installer.nsh    # Windows installer script
-│   ├── entitlements.mac.plist
-│   └── background.png
-└── build-scripts/       # Build automation
-    └── build.js
+
+**Electron Issues**
+```bash
+# Rebuild native modules
+npm run rebuild
+
+# Or manually
+npx electron-rebuild
 ```
+
+**Windows Build Issues**
+```bash
+# Install Windows Build Tools
+npm install --global windows-build-tools
+
+# Or install Visual Studio Build Tools manually
+```
+
+**Permission Issues (Windows)**
+```bash
+# Run as Administrator
+# Or use PowerShell as Administrator
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+### Build Configuration
+
+The build process creates:
+- **Windows**: NSIS installer (.exe) and portable executable
+- **macOS**: DMG installer and ZIP archive  
+- **Linux**: AppImage and DEB package
+
+Build settings are in `package.json` under the `build` section.
 
 ## 🔧 Troubleshooting
 
