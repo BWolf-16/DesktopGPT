@@ -6,6 +6,12 @@ A modern desktop application for ChatGPT with native system integration, built w
 
 ## ✨ Features
 
+### 🔐 **Secure Authentication**
+- **OpenAI Popup Login** - Secure authentication through OpenAI's official login page
+- **Session Persistence** - Remember login for up to 7 days
+- **Automatic Token Validation** - Smart session management and renewal
+- **Privacy-First** - No credentials stored locally, handled securely by OpenAI
+
 ### 🖥️ **Native Desktop Experience**
 - **System Tray Integration** - Minimize to tray and quick access
 - **Window State Persistence** - Remembers size, position, and state

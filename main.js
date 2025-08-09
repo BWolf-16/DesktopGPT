@@ -1,5 +1,5 @@
 // main.js
-const { app, BrowserWindow, Menu, shell, Tray, nativeImage, Notification, globalShortcut, session } = require('electron');
+const { app, BrowserWindow, Menu, shell, Tray, nativeImage, Notification, globalShortcut, session, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -8,9 +8,14 @@ let mainWindow;
 let tray = null;
 const isDev = process.env.NODE_ENV === 'development';
 
+// No custom authentication needed - OpenAI handles it
+
 // Store window state
 const windowStateFile = path.join(app.getPath('userData'), 'window-state.json');
 
+// No custom authentication functions needed
+
+// Store window state
 function saveWindowState() {
     if (mainWindow) {
         const bounds = mainWindow.getBounds();
@@ -50,6 +55,11 @@ function loadWindowState() {
 }
 
 function createTray() {
+    // Don't create tray if it already exists
+    if (tray !== null) {
+        return;
+    }
+    
     const iconPath = path.join(__dirname, 'assets', 'chatgpt-icon.png');
     const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
     
@@ -59,18 +69,13 @@ function createTray() {
         {
             label: 'Show Desktop GPT',
             click: () => {
-                if (mainWindow) {
-                    if (mainWindow.isMinimized()) {
-                        mainWindow.restore();
-                    }
-                    mainWindow.show();
-                    mainWindow.focus();
-                }
+                showMainWindow();
             }
         },
         {
             label: 'New Chat',
             click: () => {
+                showMainWindow();
                 if (mainWindow) {
                     mainWindow.webContents.executeJavaScript(`
                         const newChatButton = document.querySelector('[data-testid="new-chat-button"]') || 
@@ -85,6 +90,7 @@ function createTray() {
         {
             label: 'Quit',
             click: () => {
+                app.isQuiting = true;
                 app.quit();
             }
         }
@@ -94,15 +100,25 @@ function createTray() {
     tray.setContextMenu(contextMenu);
     
     tray.on('click', () => {
-        if (mainWindow) {
-            if (mainWindow.isVisible()) {
-                mainWindow.hide();
-            } else {
-                mainWindow.show();
-                mainWindow.focus();
-            }
-        }
+        showMainWindow();
     });
+}
+
+function showMainWindow() {
+    if (!mainWindow) {
+        createWindow();
+        return;
+    }
+    
+    if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+    }
+    
+    if (!mainWindow.isVisible()) {
+        mainWindow.show();
+    }
+    
+    mainWindow.focus();
 }
 
 function createWindow() {
@@ -134,22 +150,91 @@ function createWindow() {
     // Restore maximized state
     if (windowState.isMaximized) {
         mainWindow.maximize();
-    }
-
-    // Set up session preferences
+    }    // Set up session preferences
     const ses = session.fromPartition('persist:chatgpt');
     ses.setPermissionRequestHandler((webContents, permission, callback) => {
-        const allowedPermissions = ['notifications', 'microphone'];
+        const allowedPermissions = ['notifications', 'microphone', 'camera'];
         callback(allowedPermissions.includes(permission));
+    });    // Handle new window requests for main window
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        console.log('New window request for:', url);
+        
+        try {
+            const parsedUrl = new URL(url);
+              // Allow new windows/tabs for OpenAI domains and related services
+            const allowedDomains = [
+                'chat.openai.com',
+                'openai.com',
+                'auth0.openai.com',
+                'platform.openai.com',
+                'help.openai.com',
+                'cdn.auth0.com',
+                'auth.openai.com',
+                'api.openai.com'
+            ];
+            
+            const isAllowedDomain = allowedDomains.some(domain => 
+                parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
+            );
+            
+            if (isAllowedDomain) {
+                console.log('Allowing navigation to:', url);
+                // Navigate in the current window instead of opening new window
+                mainWindow.loadURL(url);
+                return { action: 'deny' };
+            } else {
+                console.log('Opening external URL in browser:', url);
+                // Open external links in system browser
+                shell.openExternal(url);
+                return { action: 'deny' };
+            }
+        } catch (error) {
+            console.error('Error parsing URL:', url, error);
+            // If URL parsing fails, open in external browser as fallback
+            shell.openExternal(url);
+            return { action: 'deny' };
+        }
     });
 
-    // Set a proper user agent
-    mainWindow.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-
-    // Load the ChatGPT website
-    mainWindow.loadURL('https://chat.openai.com');
-
-    // Show window when ready
+    // Handle navigation within main window
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+        console.log('Navigation request to:', url);
+        
+        try {
+            const parsedUrl = new URL(url);
+              // Allow navigation within OpenAI domains and related services
+            const allowedDomains = [
+                'chat.openai.com',
+                'openai.com',
+                'auth0.openai.com',
+                'platform.openai.com',
+                'help.openai.com',
+                'cdn.auth0.com',
+                'auth.openai.com',
+                'api.openai.com'
+            ];
+            
+            const isAllowedDomain = allowedDomains.some(domain => 
+                parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
+            );
+            
+            if (!isAllowedDomain) {
+                console.log('Blocking navigation to external URL:', url);
+                event.preventDefault();
+                shell.openExternal(url);
+            } else {
+                console.log('Allowing navigation to:', url);
+            }
+        } catch (error) {
+            console.error('Error parsing URL:', url, error);
+            // If URL parsing fails, prevent navigation and open externally
+            event.preventDefault();
+            shell.openExternal(url);
+        }
+    });// Set a proper user agent
+    mainWindow.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');    // Load ChatGPT directly - OpenAI handles authentication
+    console.log('Loading ChatGPT directly...');
+    mainWindow.loadURL('https://chat.openai.com');// Show window when ready
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
         
@@ -184,16 +269,148 @@ function createWindow() {
         }
     });
 
-    // Error handling
+    // Handle window destroy
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });    // Error handling
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-        console.error('Failed to load:', errorDescription);
+        console.error('Failed to load:', {
+            errorCode,
+            errorDescription,
+            validatedURL
+        });
+        
+        let errorMessage = 'Failed to load ChatGPT.';
+        let suggestion = 'Please check your internet connection.';
+        
+        // Provide more specific error messages based on error codes
+        switch(errorCode) {
+            case -101: // ERR_NETWORK_CHANGED
+                errorMessage = 'Network connection changed.';
+                suggestion = 'Please check your internet connection and try again.';
+                break;
+            case -105: // ERR_NAME_NOT_RESOLVED
+                errorMessage = 'Could not resolve chat.openai.com.';
+                suggestion = 'Please check your DNS settings or try again later.';
+                break;
+            case -106: // ERR_INTERNET_DISCONNECTED
+                errorMessage = 'No internet connection.';
+                suggestion = 'Please check your internet connection.';
+                break;
+            case -118: // ERR_CONNECTION_TIMED_OUT
+                errorMessage = 'Connection timed out.';
+                suggestion = 'The server took too long to respond. Please try again.';
+                break;
+            case -200: // ERR_CERT_COMMON_NAME_INVALID
+            case -201: // ERR_CERT_DATE_INVALID
+            case -202: // ERR_CERT_AUTHORITY_INVALID
+                errorMessage = 'SSL Certificate error.';
+                suggestion = 'There may be a security issue. Try again or check your system time.';
+                break;
+            default:
+                if (errorCode < 0) {
+                    errorMessage = `Network error (${errorCode}): ${errorDescription}`;
+                    suggestion = 'Try refreshing or check your network connection.';
+                }
+        }
         
         const errorHtml = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: Arial, sans-serif;">
-                <h1>Connection Error</h1>
-                <p>Failed to load ChatGPT. Please check your internet connection.</p>
-                <button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Retry</button>
-            </div>
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100vh;
+                        margin: 0;
+                        background: #f5f5f5;
+                        color: #333;
+                    }
+                    .container {
+                        text-align: center;
+                        background: white;
+                        padding: 40px;
+                        border-radius: 12px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                        max-width: 500px;
+                    }
+                    .icon {
+                        font-size: 48px;
+                        margin-bottom: 20px;
+                    }
+                    h1 {
+                        color: #d73a49;
+                        margin-bottom: 16px;
+                        font-size: 24px;
+                    }
+                    p {
+                        margin-bottom: 8px;
+                        line-height: 1.5;
+                    }
+                    .suggestion {
+                        color: #666;
+                        font-size: 14px;
+                        margin-bottom: 24px;
+                    }
+                    .buttons {
+                        display: flex;
+                        gap: 12px;
+                        justify-content: center;
+                        flex-wrap: wrap;
+                    }
+                    button {
+                        padding: 12px 24px;
+                        font-size: 16px;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 500;
+                        transition: all 0.2s;
+                    }                    .retry-btn {
+                        background: #28a745;
+                        color: white;
+                    }
+                    .retry-btn:hover {
+                        background: #218838;
+                    }
+                    .details {
+                        margin-top: 20px;
+                        padding: 12px;
+                        background: #f8f9fa;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        color: #666;
+                        font-family: monospace;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="icon">⚠️</div>
+                    <h1>Connection Error</h1>
+                    <p><strong>${errorMessage}</strong></p>
+                    <p class="suggestion">${suggestion}</p>
+                      <div class="buttons">
+                        <button class="retry-btn" onclick="location.reload()">
+                            🔄 Retry
+                        </button>
+                        <button class="retry-btn" onclick="window.location.href='https://chat.openai.com'">
+                            🏠 Go to ChatGPT
+                        </button>
+                    </div>
+                    
+                    <div class="details">
+                        Error Code: ${errorCode}<br>
+                        URL: ${validatedURL}<br>
+                        Description: ${errorDescription}
+                    </div>
+                </div>
+            </body>
+            </html>
         `;
         
         mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`);
@@ -214,23 +431,54 @@ function createWindow() {
             });
         `);
     });
+
+    // Update navigation menu state
+    function updateNavigationMenu() {
+        if (!mainWindow) return;
+        
+        const menu = Menu.getApplicationMenu();
+        if (menu) {
+            const backItem = menu.getMenuItemById('goBack');
+            const forwardItem = menu.getMenuItemById('goForward');
+            
+            if (backItem) {
+                backItem.enabled = mainWindow.webContents.canGoBack();
+            }
+            if (forwardItem) {
+                forwardItem.enabled = mainWindow.webContents.canGoForward();
+            }
+        }
+    }
+
+    // Update menu state on navigation
+    mainWindow.webContents.on('did-navigate', () => {
+        updateNavigationMenu();
+    });
+
+    // Update menu state on back/forward
+    mainWindow.webContents.on('did-navigate-in-page', () => {
+        updateNavigationMenu();
+    });
+
+    // Initial menu state update
+    setTimeout(() => {
+        updateNavigationMenu();
+    }, 1000);
 }
 
 function registerGlobalShortcuts() {
     // Global shortcut to toggle window
     globalShortcut.register('CommandOrControl+Shift+G', () => {
-        if (mainWindow) {
-            if (mainWindow.isVisible() && mainWindow.isFocused()) {
-                mainWindow.hide();
-            } else {
-                mainWindow.show();
-                mainWindow.focus();
-            }
+        if (mainWindow && mainWindow.isVisible() && mainWindow.isFocused()) {
+            mainWindow.hide();
+        } else {
+            showMainWindow();
         }
     });
 
     // Global shortcut for new chat
     globalShortcut.register('CommandOrControl+Shift+N', () => {
+        showMainWindow();
         if (mainWindow) {
             mainWindow.webContents.executeJavaScript(`
                 const newChatButton = document.querySelector('[data-testid="new-chat-button"]') || 
@@ -239,6 +487,37 @@ function registerGlobalShortcuts() {
                 if (newChatButton) newChatButton.click();
             `);
         }
+    });
+
+    // Navigation shortcuts when window is focused
+    app.on('browser-window-focus', () => {
+        // Back navigation
+        globalShortcut.register('Alt+Left', () => {
+            if (mainWindow && mainWindow.isFocused() && mainWindow.webContents.canGoBack()) {
+                mainWindow.webContents.goBack();
+            }
+        });
+
+        // Forward navigation  
+        globalShortcut.register('Alt+Right', () => {
+            if (mainWindow && mainWindow.isFocused() && mainWindow.webContents.canGoForward()) {
+                mainWindow.webContents.goForward();
+            }
+        });
+
+        // Refresh
+        globalShortcut.register('CommandOrControl+R', () => {
+            if (mainWindow && mainWindow.isFocused()) {
+                mainWindow.webContents.reload();
+            }
+        });
+    });
+
+    app.on('browser-window-blur', () => {
+        // Unregister navigation shortcuts when window loses focus
+        globalShortcut.unregister('Alt+Left');
+        globalShortcut.unregister('Alt+Right');
+        globalShortcut.unregister('CommandOrControl+R');
     });
 }
 
@@ -310,8 +589,7 @@ function createMenu() {
     const template = [
         {
             label: 'File',
-            submenu: [
-                {
+            submenu: [                {
                     label: 'New Chat',
                     accelerator: 'CmdOrCtrl+N',
                     click: () => {
@@ -323,7 +601,36 @@ function createMenu() {
                         `);
                     }
                 },
+                { type: 'separator' },                {
+                    label: 'Go Back',
+                    accelerator: 'Alt+Left',
+                    enabled: false,
+                    id: 'goBack',
+                    click: () => {
+                        if (mainWindow.webContents.canGoBack()) {
+                            mainWindow.webContents.goBack();
+                        }
+                    }
+                },
                 {
+                    label: 'Go Forward',
+                    accelerator: 'Alt+Right',
+                    enabled: false,
+                    id: 'goForward',
+                    click: () => {
+                        if (mainWindow.webContents.canGoForward()) {
+                            mainWindow.webContents.goForward();
+                        }
+                    }
+                },
+                {
+                    label: 'Refresh',
+                    accelerator: 'CmdOrCtrl+R',
+                    click: () => {
+                        mainWindow.webContents.reload();
+                    }
+                },
+                { type: 'separator' },{
                     label: 'Clear Cache',
                     click: async () => {
                         const ses = session.fromPartition('persist:chatgpt');
@@ -332,8 +639,7 @@ function createMenu() {
                             storages: ['cookies', 'localstorage', 'sessionstorage']
                         });
                         mainWindow.reload();
-                    }
-                },
+                    }                },
                 { type: 'separator' },
                 {
                     label: 'Hide to Tray',
@@ -608,14 +914,20 @@ app.whenReady().then(() => {
     setupAutoUpdater();
 
     app.on('activate', () => {
+        // On macOS, re-create window when dock icon is clicked and no windows are open
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
+        } else if (mainWindow) {
+            // Show existing window if it exists but is hidden
+            showMainWindow();
         }
     });
 });
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
+    // On macOS, keep the app running even when all windows are closed
+    // On other platforms, keep running if tray is enabled
+    if (process.platform !== 'darwin' && !tray) {
         app.quit();
     }
 });
@@ -627,32 +939,10 @@ app.on('before-quit', () => {
 
 app.on('will-quit', () => {
     globalShortcut.unregisterAll();
+    if (tray) {
+        tray.destroy();
+        tray = null;
+    }
 });
 
-// Handle external links
-app.on('web-contents-created', (event, contents) => {
-    contents.on('new-window', (event, navigationUrl) => {
-        event.preventDefault();
-        shell.openExternal(navigationUrl);
-    });
-});
-
-// Prevent navigation to external URLs
-app.on('web-contents-created', (event, contents) => {
-    contents.on('will-navigate', (event, navigationUrl) => {
-        const parsedUrl = new URL(navigationUrl);
-        
-        if (parsedUrl.origin !== 'https://chat.openai.com') {
-            event.preventDefault();
-            shell.openExternal(navigationUrl);
-        }
-    });
-});
-
-// Security: prevent new window creation
-app.on('web-contents-created', (event, contents) => {
-    contents.setWindowOpenHandler(({ url }) => {
-        shell.openExternal(url);
-        return { action: 'deny' };
-    });
-});
+// No authentication needed - OpenAI handles it in the browser
