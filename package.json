@@ -1,11 +1,10 @@
 {
   "name": "desktop-gpt",
   "version": "1.1.0",
-  "description": "A desktop application for ChatGPT with native system integration",
-  "main": "main.js",
-  "homepage": "https://github.com/bened/DesktopGPT",
+  "description": "A desktop application for ChatGPT with native system integration",  "main": "main.js",
+  "homepage": "https://github.com/BWolf-16/DesktopGPT",
   "author": {
-    "name": "Benedict",
+    "name": "BWolf",
     "email": "bened@example.com"
   },
   "license": "MIT",
@@ -29,11 +28,10 @@
     "desktop",
     "ai",
     "openai",
-    "assistant"
-  ],
+    "assistant"  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/bened/DesktopGPT.git"
+    "url": "https://github.com/BWolf-16/DesktopGPT.git"
   },
   "devDependencies": {
     "electron": "^27.1.3",

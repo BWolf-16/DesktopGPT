@@ -486,7 +486,173 @@ function createMenu() {
                         }
                     }
                 },
-                { type: 'separator' },
-                {
+                { type: 'separator' },                {
                     label: 'Keyboard Shortcuts',
                     accelerator: 'CmdOrCtrl+/',
+                    click: () => {
+                        const shortcutsWindow = new BrowserWindow({
+                            width: 500,
+                            height: 400,
+                            parent: mainWindow,
+                            modal: true,
+                            show: false,
+                            resizable: false,
+                            minimizable: false,
+                            maximizable: false,
+                            webPreferences: {
+                                nodeIntegration: false,
+                                contextIsolation: true
+                            }
+                        });
+
+                        const shortcutsHtml = `
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <style>
+                                    body {
+                                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+                                        padding: 20px;
+                                        margin: 0;
+                                        background: #f5f5f5;
+                                        line-height: 1.6;
+                                    }
+                                    .title { font-size: 20px; font-weight: bold; margin-bottom: 20px; text-align: center; }
+                                    .shortcut { 
+                                        display: flex; 
+                                        justify-content: space-between; 
+                                        padding: 8px 0; 
+                                        border-bottom: 1px solid #ddd;
+                                    }
+                                    .key { 
+                                        background: #e0e0e0; 
+                                        padding: 2px 8px; 
+                                        border-radius: 4px; 
+                                        font-family: monospace;
+                                        font-weight: bold;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="title">Keyboard Shortcuts</div>
+                                <div class="shortcut">
+                                    <span>New Chat</span>
+                                    <span class="key">Ctrl+N</span>
+                                </div>
+                                <div class="shortcut">
+                                    <span>Toggle Window (Global)</span>
+                                    <span class="key">Ctrl+Shift+G</span>
+                                </div>
+                                <div class="shortcut">
+                                    <span>New Chat (Global)</span>
+                                    <span class="key">Ctrl+Shift+N</span>
+                                </div>
+                                <div class="shortcut">
+                                    <span>Hide to Tray</span>
+                                    <span class="key">Ctrl+H</span>
+                                </div>
+                                <div class="shortcut">
+                                    <span>Focus Mode</span>
+                                    <span class="key">F11</span>
+                                </div>
+                                <div class="shortcut">
+                                    <span>Show Shortcuts</span>
+                                    <span class="key">Ctrl+/</span>
+                                </div>
+                                <div class="shortcut">
+                                    <span>Quit Application</span>
+                                    <span class="key">Ctrl+Q</span>
+                                </div>
+                            </body>
+                            </html>
+                        `;
+
+                        shortcutsWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(shortcutsHtml)}`);
+                        shortcutsWindow.once('ready-to-show', () => {
+                            shortcutsWindow.show();
+                        });
+                    }
+                }
+            ]
+        }
+    ];
+
+    // macOS specific menu adjustments
+    if (process.platform === 'darwin') {
+        template.unshift({
+            label: app.getName(),
+            submenu: [
+                { label: 'About ' + app.getName(), role: 'about' },
+                { type: 'separator' },
+                { label: 'Services', role: 'services', submenu: [] },
+                { type: 'separator' },
+                { label: 'Hide ' + app.getName(), accelerator: 'Command+H', role: 'hide' },
+                { label: 'Hide Others', accelerator: 'Command+Shift+H', role: 'hideothers' },
+                { label: 'Show All', role: 'unhide' },
+                { type: 'separator' },
+                { label: 'Quit', accelerator: 'Command+Q', click: () => app.quit() }
+            ]
+        });
+    }
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+}
+
+// App event handlers
+app.whenReady().then(() => {
+    createWindow();
+    createTray();
+    createMenu();
+    registerGlobalShortcuts();
+    setupAutoUpdater();
+
+    app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+            createWindow();
+        }
+    });
+});
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});
+
+app.on('before-quit', () => {
+    app.isQuiting = true;
+    saveWindowState();
+});
+
+app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+});
+
+// Handle external links
+app.on('web-contents-created', (event, contents) => {
+    contents.on('new-window', (event, navigationUrl) => {
+        event.preventDefault();
+        shell.openExternal(navigationUrl);
+    });
+});
+
+// Prevent navigation to external URLs
+app.on('web-contents-created', (event, contents) => {
+    contents.on('will-navigate', (event, navigationUrl) => {
+        const parsedUrl = new URL(navigationUrl);
+        
+        if (parsedUrl.origin !== 'https://chat.openai.com') {
+            event.preventDefault();
+            shell.openExternal(navigationUrl);
+        }
+    });
+});
+
+// Security: prevent new window creation
+app.on('web-contents-created', (event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+        shell.openExternal(url);
+        return { action: 'deny' };
+    });
+});
