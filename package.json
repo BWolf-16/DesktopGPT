@@ -1,6 +1,6 @@
 {
   "name": "desktop-gpt",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A desktop application for ChatGPT with native system integration",
   "main": "main.js",
   "homepage": "https://github.com/bened/DesktopGPT",
@@ -13,7 +13,7 @@
     "start": "electron .",
     "dev": "cross-env NODE_ENV=development electron .",
     "build": "electron-builder",
-    "build:win": "electron-builder --win",
+    "build:win": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "dist": "electron-builder --publish=never",
@@ -74,8 +74,7 @@
         "to": "assets/",
         "filter": ["**/*"]
       }
-    ],
-    "win": {
+    ],    "win": {
       "target": [
         {
           "target": "nsis",
@@ -90,7 +89,8 @@
       "publisherName": "Benedict",
       "verifyUpdateCodeSignature": false,
       "requestedExecutionLevel": "asInvoker",
-      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+      "sign": null
     },
     "nsis": {
       "oneClick": false,
@@ -160,11 +160,10 @@
         "Name": "Desktop GPT",
         "Comment": "Chat with AI using ChatGPT",
         "Keywords": "AI;Chat;OpenAI;GPT;Assistant;",
-        "StartupWMClass": "desktop-gpt"
-      }
+        "StartupWMClass": "desktop-gpt"      }
     },
     "compression": "maximum",
-    "nativeRebuilder": "sequential",
+    "forceCodeSigning": false,
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false
   },
